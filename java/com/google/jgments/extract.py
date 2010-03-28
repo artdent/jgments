@@ -1,4 +1,4 @@
-#!/usr/bin/python2.4
+#!/usr/bin/python
 #
 # Copyright 2010 Google Inc.
 #
@@ -53,15 +53,29 @@ import fnmatch
 import os
 import re
 import sys
+print sys.path
 
-# Necessary for pygments import to work.
-import google3.third_party.py.pygments.google
+try:
+  import google3
+except:
+  google3 = None
+
+if google3:
+  # Necessary for pygments import to work.
+  import google3.third_party.py.pygments.google
+
 import mako.template
 import pygments.lexer
 import pygments.token
 
-from google3.pyglib import iterlib
-from google3.pyglib import resources
+if google3:
+  from google3.pyglib import iterlib
+  from google3.pyglib import resources
+else:
+  class iterlib:
+    All = all
+  class resources:
+    GetResource = classmethod(lambda self, f: open(f).read())
 
 # NOTE(jacobly): more imports follow this monkeypatch call!
 
@@ -115,8 +129,12 @@ ALL_LEXERS = dict((lexer.name, lexer) for lexer in [
     ])
 
 _DEFAULT_PACKAGE = 'com.google.jgments.syntax'
-_DEFAULT_BASEDIR = 'third_party/java_src/jgments/java'
-_TEMPLATES_DIR = 'google3/third_party/java_src/jgments/java/com/google/jgments'
+if google3:
+  _DEFAULT_BASEDIR = 'third_party/java_src/jgments/java'
+  _TEMPLATES_DIR = 'google3/third_party/java_src/jgments/java/com/google/jgments'
+else:
+  _DEFAULT_BASEDIR = 'build/java'
+  _TEMPLATES_DIR = 'java/com/google/jgments'
 
 
 def _EscapeForString(s):
@@ -239,11 +257,20 @@ class _ProcessedTokenMatcher(object):
     return _EscapeForString(regex)
 
 
+class _RecordingLexerMeta(pygments.lexer.RegexLexerMeta):
+
+  def _process_regex(cls, regex, rflags):
+    return regex
+
+  def _process_token(cls, token):
+    return token
+
+
 def ExtractStates(lexer_cls):
   """Extracts the state dictionary from a pygments lexer class."""
 
   class RecordingLexer(lexer_cls):
-    _record_only = True
+    __metaclass__ = _RecordingLexerMeta
 
   # Instantiating the lexer takes the tokens attribute, preprocesses it,
   # and produces a _tokens attribute that we can munge.
