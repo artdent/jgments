@@ -1,0 +1,28 @@
+<project default="compile">
+  <target name="gen">
+    <exec executable="java/com/google/jgments/extract.py">
+      <env key="PYTHONPATH" value="lib/pygments"/>
+    </exec>
+  </target>
+  <target name="compile" depends="gen">
+    <!-- <exec extract.py> -->
+    <javac srcdir="java">
+      <classpath>
+        <pathelement location="lib/google-collect-1.0.jar"/>
+        <pathelement location="build/java"/>
+      </classpath>
+    </javac>
+  </target>
+  <target name="run" depends="compile">
+    <java classname="com.google.jgments.RegexLexer"/>
+  </target>
+  <target name="test" depends="compile">
+    <javac srcdir="javatests">
+      <classpath>
+        <pathelement location="java"/>
+        <pathelement location="lib"/>
+        <pathelement location="build/java"/>
+      </classpath>
+    </javac>
+  </target>
+</project>
