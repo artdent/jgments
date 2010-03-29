@@ -1,28 +1,63 @@
-<project default="compile">
-  <target name="gen">
+<project name="jgments" default="compile">
+  <path id="deps.path">
+    <pathelement path="lib/guava/build/classes"/>
+    <pathelement location="lib/guava/lib/jsr305.jar"/>
+  </path>
+  <path id="outs.path" path="build/java:build/javatests"/>
+  <path id="junit.path" location="lib/junit-4.8.1.jar"/>
+
+  <target name="gen"
+          description="Generate Jgments lexers from Pygments source files.">
+    <mkdir dir="build/java"/>
     <exec executable="java/com/google/jgments/extract.py">
       <env key="PYTHONPATH" value="lib/pygments"/>
     </exec>
   </target>
+
   <target name="compile" depends="gen">
-    <!-- <exec extract.py> -->
-    <javac srcdir="java">
+    <ant dir="lib/guava"/>
+    <javac srcdir="java:build/java" destdir="build/java">
       <classpath>
-        <pathelement location="lib/google-collect-1.0.jar"/>
-        <pathelement location="build/java"/>
+        <path refid="deps.path"/>
       </classpath>
     </javac>
   </target>
-  <target name="run" depends="compile">
-    <java classname="com.google.jgments.RegexLexer"/>
-  </target>
-  <target name="test" depends="compile">
-    <javac srcdir="javatests">
+
+  <target name="run" depends="compile"
+          description="Run Jgments demo program.">
+    <!-- Copy demonstration source file for RegexLexer main method. -->
+    <copy file="java/com/google/jgments/extract.py"
+          todir="build/java/com/google/jgments"/>
+    <java classname="com.google.jgments.RegexLexer">
       <classpath>
-        <pathelement location="java"/>
-        <pathelement location="lib"/>
-        <pathelement location="build/java"/>
+        <path refid="deps.path"/>
+        <path refid="outs.path"/>
+      </classpath>
+    </java>
+  </target>
+
+  <target name="test" depends="compile"
+          description="Compile and run JUnit unit tests.">
+    <mkdir dir="build/javatests"/>
+    <mkdir dir="build/test-output"/>
+    <javac srcdir="javatests" destdir="build/javatests">
+      <classpath>
+        <path refid="deps.path"/>
+        <path refid="outs.path"/>
+        <path refid="junit.path"/>
       </classpath>
     </javac>
+    <junit printsummary="yes">
+      <batchtest todir="build/test-output">
+        <fileset dir="javatests"/>
+      </batchtest>
+      <classpath>
+        <path refid="deps.path"/>
+        <path refid="outs.path"/>
+        <path refid="junit.path"/>
+      </classpath>
+      <formatter type="plain"/>
+    </junit>
   </target>
+
 </project>

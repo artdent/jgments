@@ -53,7 +53,6 @@ import fnmatch
 import os
 import re
 import sys
-print sys.path
 
 try:
   import google3
@@ -123,7 +122,7 @@ ALL_LEXERS = dict((lexer.name, lexer) for lexer in [
     pygments.lexers.functional.HaskellLexer,
     #pygments.lexers.web.HtmlLexer,
     pygments.lexers.compiled.JavaLexer,
-    pygments.lexers.web.JavascriptLexer,
+    #pygments.lexers.web.JavascriptLexer,
     pygments.lexers.agile.PythonLexer,
     pygments.lexers.web.XmlLexer,
     ])
