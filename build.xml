@@ -1,7 +1,6 @@
-<project name="jgments" default="compile">
+<project name="jgments" default="jar">
   <path id="deps.path">
-    <pathelement path="lib/guava/build/classes"/>
-    <pathelement location="lib/guava/lib/jsr305.jar"/>
+    <pathelement location="lib/guava-r07.jar"/>
   </path>
   <path id="outs.path" path="build/java:build/javatests"/>
   <path id="junit.path" location="lib/junit-4.8.1.jar"/>
@@ -17,12 +16,16 @@
   </target>
 
   <target name="compile" depends="gen">
-    <ant dir="lib/guava"/>
     <javac srcdir="java:build/java" destdir="build/java">
       <classpath>
         <path refid="deps.path"/>
       </classpath>
     </javac>
+  </target>
+
+  <target name="jar" depends="compile">
+    <jar destfile="jgments.jar" basedir="build/java" includes="**/*.class">
+    </jar>
   </target>
 
   <target name="run" depends="compile"
