@@ -46,7 +46,7 @@ The highest level interface to this module consists of the Write* functions
 that output Java source code. The remaining non-private functions form the
 slightly lower-level programmatic interface.
 
-The command-line interface is usable standalone or via Blaze.
+The command-line interface is usable standalone or via the Google build system.
 """
 
 import fnmatch
@@ -54,83 +54,32 @@ import os
 import re
 import sys
 
+# Suppress warnings about unusual import order.
+# pylint: disable-msg=C6204,C6205,W0611
 try:
   import google3
-except:
-  google3 = None
-
-if google3:
-  # Necessary for pygments import to work.
-  import google3.third_party.py.pygments.google
-
-import mako.template
-import pygments.lexer
-import pygments.token
-
-if google3:
+  from google3.third_party.java_src.jgments.java.com.google.jgments import (
+      lexers, youstillhavetwoproblems)
   from google3.pyglib import iterlib
   from google3.pyglib import resources
-else:
-  class iterlib:
-    All = all
-  class resources:
-    GetResource = classmethod(lambda self, f: open(f).read())
+except ImportError:
+  google3 = None
+  import lexers
+  import youstillhavetwoproblems
+  from stubs import iterlib
+  from stubs import resources
 
-# NOTE(jacobly): more imports follow this monkeypatch call!
-
-
-def _MonkeypatchTokenizerHelpers(module, func_names):
-  """Replaces preprocessor functions.
-
-  Pygments defines some functions that are called when a lexer is constructed,
-  returning opaque objects that we can't inspect. We must replace those objects
-  with ones that simply note the name of the function called.
-  For example, instead of calling bygroups (which returns a matcher function),
-  we must note that bygroups is called at that point.
-
-  Args:
-    module: the module to patch.
-    func_names: the list of function names in that module to replace.
-  """
-  def _MakeRecorder(func_name):
-    # Ignore the keyword args, which we don't support.
-    return lambda *args, **kwargs: (func_name, args)
-  for func_name in func_names:
-    getattr(module, func_name)  # First make sure the function exists.
-    setattr(module, func_name, _MakeRecorder(func_name))
-
-_MonkeypatchTokenizerHelpers(pygments.lexer, ['bygroups', 'using'])
-
-# Import the modules we are capable of extracting.
-import pygments.lexers.agile
-import pygments.lexers.compiled
-import pygments.lexers.functional
-import pygments.lexers.web
-# We require the name attribute to be a valid Java identifier. "C++" is not.
-pygments.lexers.compiled.CppLexer.name = 'Cpp'
-
-# This list must be kept in sync with the BUILD rule.
-# Note that lexer.name is sometimes capitalized non-obviously
-# (e.g. 'JavaScript').
-# TODO(jacobly): the commented-out lexers on this list are disabled due to
-# regular expressions that this script cannot convert into valid Java regexes.
-ALL_LEXERS = dict((lexer.name, lexer) for lexer in [
-    #pygments.lexers.compiled.CLexer,
-    pygments.lexers.compiled.CppLexer,
-    #pygments.lexers.web.CssLexer,
-    pygments.lexers.compiled.GoLexer,
-    pygments.lexers.functional.HaskellLexer,
-    #pygments.lexers.web.HtmlLexer,
-    pygments.lexers.compiled.JavaLexer,
-    #pygments.lexers.web.JavascriptLexer,
-    pygments.lexers.agile.PythonLexer,
-    pygments.lexers.web.XmlLexer,
-    ])
+import mako.template
+# Import pygments after the lexers module does its monkeypatching.
+import pygments.formatters.html
+import pygments.lexer
+import pygments.token
+assert pygments.lexer.bygroups.__module__ == 'lexers', 'Pygments was not monkeypatched!'
 
 _DEFAULT_PACKAGE = 'com.google.jgments.syntax'
 if google3:
   _DEFAULT_BASEDIR = 'third_party/java_src/jgments/java'
-  _TEMPLATES_DIR = 'google3/third_party/java_src/jgments/java/com/google/jgments'
+  _TEMPLATES_DIR = 'google3/%s/com/google/jgments' % _DEFAULT_BASEDIR
 else:
   _DEFAULT_BASEDIR = 'build/java'
   _TEMPLATES_DIR = 'java/com/google/jgments'
@@ -143,8 +92,8 @@ def _EscapeForString(s):
 
 def _JavaLexerName(lexer_cls_name):
   """Return the name in Java of the given lexer class name."""
-  assert ('.' not in lexer_cls_name,
-          'Lexer class name must not refer to the enclosing module.')
+  assert '.' not in lexer_cls_name, \
+      'Lexer class name must not refer to the enclosing module.'
   return lexer_cls_name + 'Syntax'
 
 
@@ -214,7 +163,7 @@ class _ProcessedTokenMatcher(object):
     return 'TokenActions.byGroups(%s)' % ', '.join(args)
 
   def _ProcessLexerName(self, lexer_name):
-    if lexer_name not in ALL_LEXERS:
+    if lexer_name not in lexers.ALL:
       raise RuntimeError('No lexer available for %s' % lexer_name)
     return '"%s"' % lexer_name
 
@@ -240,20 +189,7 @@ class _ProcessedTokenMatcher(object):
 
   def _ProcessRegex(self, regex):
     """Converts a regular expression to java syntax."""
-    # Python regexes allow text like {foo}, but Java treats that as
-    # "repeat the previous group foo times" and requires the {} to be escaped.
-    regex = re.sub('{([^{}]*[^0-9,{}][^{}]*)}', r'\{\1\}', regex)
-    # The same problem occurs for unbalanced special characters at the
-    # beginning and end of a string.
-    for open, close in zip('({[', ')}]'):
-      regex = re.sub(r'\%s([^%s\\]+)$' % (open, close),
-                     r'\%s\1' % open, regex)
-      regex = re.sub(r'^([^%s\\]+)\%s' % (open, close),
-                     r'\1\%s' % close, regex)
-    # Python allows [ inside [], but Java requires escaping it if it is
-    # not the first character in the class and if it is not already escaped.
-    regex = re.sub(r'\[(.[^]]*)(?<!\\)\[([^]]*)\]', r'[\1\[\2]', regex)
-    return _EscapeForString(regex)
+    return _EscapeForString(youstillhavetwoproblems.to_java(regex))
 
 
 class _RecordingLexerMeta(pygments.lexer.RegexLexerMeta):
@@ -283,12 +219,19 @@ def ExtractStates(lexer_cls):
   return states
 
 
+def _GlobToRegex(glob):
+  """Converts a shell glob to a regular expression."""
+  # fnmatch.translate adds '$' or '\Z(?ms)' (on python >= 2.6)
+  # to the end of the regex.
+  return fnmatch.translate(glob).rstrip('$').replace(r'\Z(?ms)', '')
+
+
 def ConvertFilenames(filenames):
   """Converts a list of file name globs into single regex."""
   # The regexes returned by fnmatch.translate are simple enough that the
   # escaping used for token regexes is not necessary here.
   return _EscapeForString('(%s)$' % (
-      '|'.join(fnmatch.translate(glob).rstrip('$') for glob in filenames)))
+      '|'.join(_GlobToRegex(glob) for glob in filenames)))
 
 
 def AllTokens():
@@ -318,10 +261,14 @@ def WriteTokens(config):
     config: an OutputConfiguration object.
   """
   outfile = config.OutputFile('Token')
-  tokens = [_FormatToken(token) for token in AllTokens()]
+  all_tokens = AllTokens()
+  tokens = [_FormatToken(token) for token in all_tokens]
+  short_names = [pygments.formatters.html._get_ttype_class(token)
+                 for token in all_tokens]
   template = mako.template.Template(
       resources.GetResource(os.path.join(_TEMPLATES_DIR, 'tokens.mako')))
-  outfile.write(template.render(tokens=tokens, package=config.package))
+  outfile.write(template.render(tokens=tokens, short_names=short_names,
+                                package=config.package))
 
 
 def WriteLexerList(config):
@@ -333,8 +280,8 @@ def WriteLexerList(config):
   outfile = config.OutputFile('Lexers')
   template = mako.template.Template(
       resources.GetResource(os.path.join(_TEMPLATES_DIR, 'lexers.mako')))
-  lexers = dict((name, _JavaLexerName(name)) for name in ALL_LEXERS)
-  outfile.write(template.render(lexers=lexers, package=config.package))
+  lexer_list = dict((name, _JavaLexerName(name)) for name in lexers.ALL)
+  outfile.write(template.render(lexers=lexer_list, package=config.package))
 
 
 def WriteLexer(config, name):
@@ -346,7 +293,7 @@ def WriteLexer(config, name):
       usable as an index into ALL_LEXERS.
   """
   try:
-    lexer_cls = ALL_LEXERS[name]
+    lexer_cls = lexers.ALL[name]
   except KeyError:
     raise RuntimeError('Unknown lexer "%s"' % name)
   class_name = _JavaLexerName(name)
@@ -355,9 +302,9 @@ def WriteLexer(config, name):
   filenames = ConvertFilenames(lexer_cls.filenames)
   template = mako.template.Template(
       resources.GetResource(os.path.join(_TEMPLATES_DIR, 'lexer.mako')))
-  outfile.write(template.render(
+  outfile.write(template.render_unicode(
       states=states, lexer_name=class_name, origin=lexer_cls,
-      package=config.package, filenames=filenames))
+      package=config.package, filenames=filenames).encode('utf-8'))
 
 
 class OutputConfiguration(object):
@@ -414,7 +361,7 @@ def main():
     # With no arguments, write all modules to the default output paths.
     config = OutputConfiguration()
     WriteTokens(config)
-    for lexer_name in ALL_LEXERS:
+    for lexer_name in lexers.ALL:
       WriteLexer(config, lexer_name)
     WriteLexerList(config)
   else:

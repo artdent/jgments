@@ -5,12 +5,14 @@
   </path>
   <path id="outs.path" path="build/java:build/javatests"/>
   <path id="junit.path" location="lib/junit-4.8.1.jar"/>
+  <property name="pythonpath" value="lib/pygments"/>
 
   <target name="gen"
           description="Generate Jgments lexers from Pygments source files.">
     <mkdir dir="build/java"/>
-    <exec executable="java/com/google/jgments/extract.py">
-      <env key="PYTHONPATH" value="lib/pygments"/>
+    <exec executable="java/com/google/jgments/extract.py"
+          failonerror="true">
+      <env key="PYTHONPATH" value="${pythonpath}"/>
     </exec>
   </target>
 
@@ -37,9 +39,13 @@
   </target>
 
   <target name="test" depends="compile"
-          description="Compile and run JUnit unit tests.">
+          description="Compile and run Java and Python unit tests.">
     <mkdir dir="build/javatests"/>
     <mkdir dir="build/test-output"/>
+    <exec executable="java/com/google/jgments/extract_test.py">
+      <env key="PYTHONPATH" value="${pythonpath}"/>
+    </exec>
+    <exec executable="java/com/google/jgments/youstillhavetwoproblems_test.py"/>
     <javac srcdir="javatests" destdir="build/javatests">
       <classpath>
         <path refid="deps.path"/>
@@ -60,4 +66,7 @@
     </junit>
   </target>
 
+  <target name="clean">
+    <delete dir="build"/>
+  </target>
 </project>
