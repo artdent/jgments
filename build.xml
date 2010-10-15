@@ -1,6 +1,7 @@
 <project name="jgments" default="jar">
   <path id="deps.path">
     <pathelement location="lib/guava-r07.jar"/>
+    <pathelement location="lib/jsr305.jar"/>
   </path>
   <path id="outs.path" path="build/java:build/javatests"/>
   <path id="junit.path" location="lib/junit-4.8.1.jar"/>
