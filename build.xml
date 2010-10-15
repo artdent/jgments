@@ -4,14 +4,18 @@
   </path>
   <path id="outs.path" path="build/java:build/javatests"/>
   <path id="junit.path" location="lib/junit-4.8.1.jar"/>
-  <property name="pythonpath" value="lib/pygments"/>
+  <path id="python.path">
+    <pathelement location="lib/pygments-1.2.2-patched"/>
+    <pathelement location="lib/Mako-0.3.4"/>
+    <pathelement location="lib/MarkupSafe-0.11"/>
+  </path>
 
   <target name="gen"
           description="Generate Jgments lexers from Pygments source files.">
     <mkdir dir="build/java"/>
     <exec executable="java/com/google/jgments/extract.py"
           failonerror="true">
-      <env key="PYTHONPATH" value="${pythonpath}"/>
+      <env key="PYTHONPATH" value="${toString:python.path}"/>
     </exec>
   </target>
 
@@ -46,7 +50,7 @@
     <mkdir dir="build/javatests"/>
     <mkdir dir="build/test-output"/>
     <exec executable="java/com/google/jgments/extract_test.py">
-      <env key="PYTHONPATH" value="${pythonpath}"/>
+      <env key="PYTHONPATH" value="${toString:python.path}"/>
     </exec>
     <exec executable="java/com/google/jgments/youstillhavetwoproblems_test.py"/>
     <javac srcdir="javatests" destdir="build/javatests">
